@@ -1,0 +1,68 @@
+name: Guardian Intake (Signal -> Care-Case Issue)
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "examples/signal.*.json"
+      - "signals/**/*.json"
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  intake:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r tools/requirements.txt
+
+      - name: Build Care-Case from changed Signals
+        id: build
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_BEFORE: ${{ github.event.before }}
+        run: |
+          python tools/guardian_intake.py
+
+      - name: Login gh with token
+        if: ${{ steps.build.outputs.has_cases == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh auth login --with-token --hostname github.com <<EOF
+          $GH_TOKEN
+          EOF
+
+      - name: Create GitHub Issue (if any)
+        if: ${{ steps.build.outputs.has_cases == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Create one issue per generated case (paths are newline-separated)
+          while IFS= read -r casefile; do
+            echo "Creating issue for $casefile"
+            title=$(python tools/guardian_print_issue.py --title "$casefile")
+            body=$(python tools/guardian_print_issue.py --body "$casefile")
+            gh issue create --title "$title" --body "$body"
+          done <<< "${{ steps.build.outputs.case_files }}"
+
+      - name: Upload generated care-cases
+        if: ${{ steps.build.outputs.has_cases == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-carecases
+          path: generated/*.json
