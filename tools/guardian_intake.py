@@ -24,10 +24,14 @@ def changed_signal_files() -> List[Path]:
     # Compare last commit to previous (works with fetch-depth 2)
     before = os.environ.get("GITHUB_BEFORE")
     after = os.environ.get("GITHUB_SHA")
-    if before and after and before != "0000000000000000000000000000000000000000":
-        diff = _run(["bash", "-lc", f"git diff --name-only {before} {after}"])
-    else:
-        diff = _run(["bash", "-lc", "git diff --name-only HEAD~1 HEAD"])
+    try:
+        if before and after and before != "0000000000000000000000000000000000000000":
+            diff = _run(["bash", "-lc", f"git diff --name-only {before} {after}"])
+        else:
+            diff = _run(["bash", "-lc", "git diff --name-only HEAD~1 HEAD"])
+    except subprocess.CalledProcessError as exc:
+        print(f"Failed to compute git diff: {exc}")
+        return []
     paths = []
     for line in diff.splitlines():
         p = Path(line.strip())
