@@ -1,0 +1,23 @@
+{
+  "schema_version": "0.1",
+  "id": "f8c1a9d2-0a0e-4e6f-a1d0-2d5c5a2b9c21",
+  "created_at": "2025-12-30T20:12:00Z",
+  "system": { "name": "liminal-thread-book", "env": "prod", "version": "gh-pages" },
+  "policy_gate": "green",
+  "recommended_action": "propose_patch",
+  "tension": 0.62,
+  "summary": "Perf regression detected; propose minimal reversible fix",
+  "root_cause_hypothesis": "Likely heavier hero image or blocking script introduced in latest deploy",
+  "constraints": ["reversibility-first", "minimal-intervention", "canary-required", "no-secrets"],
+  "signals": [
+    { "signal_id": "2c1b0e57-2fd2-4f71-8c52-69a1e0f9f1f7" }
+  ],
+  "proposed_transition": {
+    "intent": "Reduce LCP by optimizing hero asset and deferring non-critical scripts",
+    "scope": "home page assets + script loading order",
+    "reversibility": "reversible",
+    "verification": ["Lighthouse LCP <= 2500ms", "No functional regressions (smoke)"],
+    "trace_ref": "pending"
+  },
+  "status": "open"
+}
