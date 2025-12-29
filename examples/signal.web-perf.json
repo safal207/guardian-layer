@@ -1,0 +1,13 @@
+{
+  "schema_version": "0.1",
+  "id": "2c1b0e57-2fd2-4f71-8c52-69a1e0f9f1f7",
+  "timestamp": "2025-12-30T20:10:00Z",
+  "source": "lighthouse",
+  "severity": "warn",
+  "tension": 0.62,
+  "system": { "name": "liminal-thread-book", "env": "prod", "version": "gh-pages" },
+  "kind": "web-perf",
+  "summary": "LCP regressed above budget on home page",
+  "details": { "lcp_ms": 4200, "budget_ms": 2500, "cls": 0.08, "ttfb_ms": 580 },
+  "trace_ref": "deploy:2025-12-30T20:00Z"
+}

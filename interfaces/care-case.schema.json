@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/safal207/guardian-layer/blob/main/interfaces/care-case.schema.json",
+  "title": "Guardian Care-Case",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "created_at",
+    "system",
+    "policy_gate",
+    "recommended_action",
+    "tension",
+    "summary",
+    "signals"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "const": "0.1" },
+    "id": {
+      "type": "string",
+      "description": "UUID v4 string (recommended).",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "created_at": { "type": "string", "format": "date-time" },
+    "system": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "env", "version"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "env": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "policy_gate": { "type": "string", "enum": ["green", "yellow", "red"] },
+    "recommended_action": {
+      "type": "string",
+      "enum": ["observe", "propose_patch", "rollback", "human_review"]
+    },
+    "tension": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Aggregated tension score for the case"
+    },
+    "summary": { "type": "string", "minLength": 1 },
+    "root_cause_hypothesis": {
+      "type": "string",
+      "description": "Optional plain-language hypothesis. Not a fact."
+    },
+    "constraints": {
+      "type": "array",
+      "description": "Care constraints to enforce for any transition",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "signals": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Signals that formed this care-case (IDs + optional embedded snapshots)",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["signal_id"],
+        "properties": {
+          "signal_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+          },
+          "snapshot": {
+            "type": "object",
+            "description": "Optional minimal embedded copy of the signal for audit convenience",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    "proposed_transition": {
+      "type": "object",
+      "description": "Optional structured intent for an LTP transition proposal",
+      "additionalProperties": false,
+      "required": ["intent", "scope", "reversibility", "verification"],
+      "properties": {
+        "intent": { "type": "string", "minLength": 1 },
+        "scope": { "type": "string", "minLength": 1 },
+        "reversibility": { "type": "string", "enum": ["reversible", "guarded", "irreversible"] },
+        "verification": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "trace_ref": { "type": "string" }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": ["open", "mitigating", "resolved", "rejected"],
+      "default": "open"
+    }
+  }
+}

@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/safal207/guardian-layer/blob/main/interfaces/signals.schema.json",
+  "title": "Guardian Signal",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "timestamp",
+    "source",
+    "severity",
+    "tension",
+    "system",
+    "kind",
+    "summary"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "const": "0.1" },
+    "id": {
+      "type": "string",
+      "description": "UUID v4 string (recommended).",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "description": "ISO 8601 datetime",
+      "format": "date-time"
+    },
+    "source": {
+      "type": "string",
+      "description": "Origin of the signal",
+      "minLength": 1
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["info", "warn", "fail"]
+    },
+    "tension": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "0 = calm, 1 = critical"
+    },
+    "system": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "env", "version"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "env": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "kind": {
+      "type": "string",
+      "description": "Type/category of signal",
+      "minLength": 1,
+      "examples": ["web-perf", "error-rate", "security", "ux-friction", "schema-drift"]
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Short human-readable summary"
+    },
+    "details": {
+      "type": "object",
+      "description": "Arbitrary structured payload (bounded by source)",
+      "additionalProperties": true
+    },
+    "trace_ref": {
+      "type": "string",
+      "description": "Optional reference to an LTP trace, commit SHA, or run id"
+    },
+    "links": {
+      "type": "array",
+      "description": "Optional supporting links",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["label", "url"],
+        "properties": {
+          "label": { "type": "string", "minLength": 1 },
+          "url": { "type": "string", "format": "uri" }
+        }
+      }
+    }
+  }
+}
