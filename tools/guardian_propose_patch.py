@@ -56,15 +56,10 @@ def _existing_pr(branch: str) -> bool:
             "all",
             "--json",
             "number",
-            "--jq",
-            "length",
         ],
         check=True,
     )
-    try:
-        return int(output.strip() or "0") > 0
-    except ValueError:
-        return False
+    return output.strip() not in ("", "[]")
 
 
 def _remote_branch_exists(branch: str) -> bool:
@@ -192,6 +187,46 @@ def _build_pr_body(case: Dict[str, Any]) -> str:
     )
 
 
+def _post_pr_metadata(pr_url: str) -> None:
+    _run(
+        ["gh", "pr", "edit", pr_url, "--add-label", "guardian"],
+        check=False,
+    )
+    _run(["gh", "pr", "edit", pr_url, "--add-label", "bot"], check=False)
+
+    comment = (
+        "👮 Guardian PR checklist for reviewer:\n"
+        "- Confirm patch file path: guardian/patches/<case_uuid>.md\n"
+        "- Confirm sections exist (Root cause / Steps / Verification)\n"
+        "- Confirm verification has checkboxes (- [ ])\n"
+        "- Confirm proposal stays reversible & scope-limited\n"
+    )
+    _run(["gh", "pr", "comment", pr_url, "--body", comment], check=False)
+
+
+def _get_pr_url_by_head(branch: str) -> str:
+    url = _run(
+        [
+            "gh",
+            "pr",
+            "view",
+            "--head",
+            branch,
+            "--json",
+            "url",
+            "--jq",
+            ".url",
+        ],
+        check=False,
+    ).strip()
+    if not url:
+        url = _run(
+            ["gh", "pr", "view", "--head", branch, "--json", "url", "--jq", ".url"],
+            check=False,
+        ).strip()
+    return url
+
+
 def main() -> None:
     cases = [p for p in _list_cases()]
     if not cases:
@@ -251,9 +286,19 @@ def main() -> None:
                 base_branch,
                 "--head",
                 branch,
+                "--template",
+                "guardian.md",
             ],
             check=True,
         )
+        pr_url = _get_pr_url_by_head(branch)
+        if pr_url:
+            _post_pr_metadata(pr_url)
+        else:
+            print(
+                "Warning: could not resolve PR URL for head branch "
+                f"{branch}; skipping labels/comment."
+            )
 
         created_any = True
         _run(
