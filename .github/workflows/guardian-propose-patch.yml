@@ -1,0 +1,58 @@
+name: Guardian Propose Patch (Green-only PR)
+
+on:
+  workflow_run:
+    workflows: ["Guardian Intake (Signal -> Care-Case Issue)"]
+    types:
+      - completed
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+
+jobs:
+  propose-patch:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    env:
+      GH_REPO: ${{ github.repository }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download generated care-cases
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: generated-carecases
+          path: generated
+          run-id: ${{ github.event.workflow_run.id }}
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+
+      - name: Show gh version
+        run: gh --version
+
+      - name: List generated dir
+        run: |
+          ls -la generated || true
+          find generated -maxdepth 2 -type f -print || true
+
+      - name: Warn when no care-case artifacts are present
+        run: |
+          if [ ! -d generated ] || [ -z "$(find generated -type f -name '*.json' -print -quit)" ]; then
+            echo "::warning::No care-cases artifact downloaded (intake may have produced none or artifact download failed)."
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Propose patch PRs for green care-cases
+        run: |
+          python tools/guardian_propose_patch.py
