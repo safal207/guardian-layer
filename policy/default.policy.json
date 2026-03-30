@@ -1,0 +1,49 @@
+{
+  "schema_version": "0.1",
+  "id": "default",
+  "description": "Default Guardian Layer policy pack",
+  "gates": {
+    "green_max_tension": 0.4,
+    "yellow_max_tension": 0.75
+  },
+  "recommended_actions": {
+    "default": {
+      "green": "propose_patch",
+      "yellow": "human_review",
+      "red": "human_review"
+    },
+    "overrides": [
+      {
+        "kind": "web-perf",
+        "severity": "fail",
+        "gate": "red",
+        "action": "rollback"
+      }
+    ]
+  },
+  "constraints": {
+    "base": [
+      "reversibility-first",
+      "minimal-intervention",
+      "explainability",
+      "human-seniority"
+    ],
+    "non_green_append": [
+      "canary-required"
+    ],
+    "kind_append": {
+      "security": [
+        "no-secrets"
+      ]
+    }
+  },
+  "web_perf_transition_template": {
+    "intent": "Reduce LCP/TTFB by optimizing critical assets and deferring non-critical scripts",
+    "scope": "critical rendering path (hero assets, script loading)",
+    "reversibility": "reversible",
+    "verification": [
+      "Lighthouse LCP within budget",
+      "No functional regressions (smoke)"
+    ]
+  }
+}
