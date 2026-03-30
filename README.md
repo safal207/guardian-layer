@@ -14,6 +14,10 @@ Guardian Layer — keeper of gentle continuity: care-first policy layer for LTP 
 - Operator CLI for day-1 workflows:
   - `python tools/guardian_case.py evaluate --signal examples/signal.web-perf.json`
   - `python tools/guardian_case.py explain --signal examples/signal.web-perf.json`
+- API (ingest/evaluate/explain) for service mode:
+  - `uvicorn api.app:app --reload --port 8000`
+  - `curl -sS http://127.0.0.1:8000/healthz`
+  - `curl -sS -X POST http://127.0.0.1:8000/v1/evaluate -H 'content-type: application/json' --data @examples/signal.web-perf.json`
 
 ## Planning & business
 - [Roadmap 2026](docs/ROADMAP_2026.md)
