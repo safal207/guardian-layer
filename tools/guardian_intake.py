@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
+import argparse
 import json
 import os
 import subprocess
-import uuid
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 
 from jsonschema import Draft202012Validator
+
+from guardian_policy import build_carecase, load_policy_pack
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -62,81 +63,6 @@ def validate(instance: Dict[str, Any], schema: Dict[str, Any], label: str) -> No
         raise SystemExit("\n".join(msg_lines))
 
 
-def gate_from_tension(t: float) -> str:
-    if t < 0.40:
-        return "green"
-    if t < 0.75:
-        return "yellow"
-    return "red"
-
-
-def recommended_action(gate: str, kind: str, severity: str) -> str:
-    if gate == "green":
-        return "propose_patch"
-    # optional: if super bad web-perf + fail, suggest rollback
-    if gate == "red" and kind == "web-perf" and severity == "fail":
-        return "rollback"
-    return "human_review"
-
-
-def constraints_for(signal: Dict[str, Any], gate: str) -> List[str]:
-    base = ["reversibility-first", "minimal-intervention", "explainability", "human-seniority"]
-    if gate != "green":
-        base.append("canary-required")
-    if signal.get("kind") == "security":
-        base.append("no-secrets")
-    return base
-
-
-def now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-
-
-def build_carecase(signal: Dict[str, Any]) -> Dict[str, Any]:
-    t = float(signal["tension"])
-    gate = gate_from_tension(t)
-    action = recommended_action(gate, signal.get("kind", ""), signal.get("severity", "info"))
-    carecase: Dict[str, Any] = {
-        "schema_version": "0.1",
-        "id": _derive_case_id(signal["id"]),
-        "created_at": now_iso(),
-        "system": signal["system"],
-        "policy_gate": gate,
-        "recommended_action": action,
-        "tension": t,
-        "summary": f"{signal['summary']}",
-        "constraints": constraints_for(signal, gate),
-        "signals": [{"signal_id": signal["id"]}],
-        "status": "open",
-    }
-
-    # A small helpful default proposed transition for green/yellow web-perf
-    if signal.get("kind") == "web-perf" and action in ("propose_patch", "human_review"):
-        carecase["root_cause_hypothesis"] = (
-            "Potentially heavier assets or blocking scripts introduced recently."
-        )
-        carecase["proposed_transition"] = {
-            "intent": "Reduce LCP/TTFB by optimizing critical assets and deferring non-critical scripts",
-            "scope": "critical rendering path (hero assets, script loading)",
-            "reversibility": "reversible",
-            "verification": [
-                "Lighthouse LCP within budget",
-                "No functional regressions (smoke)",
-            ],
-            "trace_ref": signal.get("trace_ref", "pending"),
-        }
-
-    return carecase
-
-
-def _derive_case_id(signal_id: str) -> str:
-    """
-    Deterministic, stable UUID using a fixed namespace.
-    """
-    ns = uuid.UUID("00000000-0000-0000-0000-000000000000")
-    return str(uuid.uuid5(ns, f"carecase:{signal_id}"))
-
-
 def write_json(path: Path, data: Dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as f:
@@ -152,7 +78,18 @@ def set_github_output(name: str, value: str) -> None:
         f.write(f"{name}={value}\n")
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--policy-pack",
+        default=str(ROOT / "policy" / "default.policy.json"),
+        help="Path to JSON policy pack.",
+    )
+    return parser.parse_args()
+
+
 def main() -> None:
+    args = parse_args()
     signal_paths = changed_signal_files()
     if not signal_paths:
         set_github_output("has_cases", "false")
@@ -162,6 +99,7 @@ def main() -> None:
 
     schema_signal = load_schema(SCHEMA_SIGNAL)
     schema_case = load_schema(SCHEMA_CARECASE)
+    policy = load_policy_pack(Path(args.policy_pack))
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     generated: List[Path] = []
@@ -170,7 +108,7 @@ def main() -> None:
         signal = load_json(sp)
         validate(signal, schema_signal, f"Signal ({sp.as_posix()})")
 
-        carecase = build_carecase(signal)
+        carecase = build_carecase(signal, policy)
         validate(carecase, schema_case, "Care-Case (generated)")
 
         out_file = OUT_DIR / f"carecase.{signal['id']}.json"
